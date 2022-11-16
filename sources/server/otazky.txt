@@ -1,0 +1,18 @@
+Jakou barvu má sluníčko?
+modrá
+žlutá
+černá
+růžová
+2
+Jakou barvu má nebe?
+modrá
+žlutá
+černá
+růžová
+1
+Jakou barvu má tráva?
+modrá
+žlutá
+černá
+zelená
+4
