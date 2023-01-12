@@ -129,28 +129,6 @@ int count_questions(char* path_to_questions){
  */
 void load_questions(char* path_to_questions, question* questions){
     questions = calloc(count_questions(path_to_questions), sizeof(question));
-
-    questions[0].question = "Jakou barvu má sluníčko?";
-    questions[0].ans1 = "modrá";
-    questions[0].ans2 = "žlutá";
-    questions[0].ans3 = "černá";
-    questions[0].ans4 = "růžová";
-    questions[0].correct = 2;
-
-    questions[1].question = "Jakou barvu má nebe?";
-    questions[1].ans1 = "modrá";
-    questions[1].ans2 = "žlutá";
-    questions[1].ans3 = "černá";
-    questions[1].ans4 = "růžová";
-    questions[1].correct = 1;
-
-
-    questions[2].question = "Jakou barvu má tráva?";
-    questions[2].ans1 = "modrá";
-    questions[2].ans2 = "žlutá";
-    questions[2].ans3 = "černá";
-    questions[2].ans4 = "zelená";
-    questions[2].correct = 4;
 }
 
 /**
@@ -718,31 +696,52 @@ void *connection_handler(void *socket_desc)
  */
 int main(int argc , char *argv[])
 {
+    int port = 10000;
+    if (argc < 2){
+        printf("Port byl nastaven na výchozí hodnotu 10000.\n");
+    }
+    else if (argc == 2){
+        printf("Goood\n");
+        int param_port = atoi(argv[1]);
+        if (param_port >= 1 && param_port <= 65335){
+            port = param_port;
+        }
+        else{
+            printf("Nesprávný rozsah portu, povolý rozsah 1-65335.");
+            exit(0);
+        }
+        
+    }
+    else{
+        printf("Chyba. Nesprávný počet parametrů.\n");
+        exit(0);
+    }
+
     setvbuf(stdout, NULL, _IOLBF, 0);
     players = calloc(NUMBER_OF_PLAYERS,sizeof(player));
     games = calloc(NUMBER_OF_ROOMS, sizeof(game));
     questions = calloc(NUMBER_OF_QUESTIONS, sizeof(question));
 
-    questions[0].question = "Jakou barvu má sluníčko?";
-    questions[0].ans1 = "modrá";
-    questions[0].ans2 = "žlutá";
-    questions[0].ans3 = "černá";
-    questions[0].ans4 = "růžová";
+    questions[0].question = "Kolik je 1+1?";
+    questions[0].ans1 = "0";
+    questions[0].ans2 = "2";
+    questions[0].ans3 = "11";
+    questions[0].ans4 = "Nelze";
     questions[0].correct = 2;
 
-    questions[1].question = "Jakou barvu má nebe?";
-    questions[1].ans1 = "modrá";
-    questions[1].ans2 = "žlutá";
-    questions[1].ans3 = "černá";
-    questions[1].ans4 = "růžová";
-    questions[1].correct = 1;
+    questions[1].question = "Létají sloni?";
+    questions[1].ans1 = "Ano";
+    questions[1].ans2 = "Ne";
+    questions[1].ans3 = "Jen malý sloni";
+    questions[1].ans4 = "Jen ti co mají křídla";
+    questions[1].correct = 4;
 
 
-    questions[2].question = "Jakou barvu má tráva?";
-    questions[2].ans1 = "modrá";
-    questions[2].ans2 = "žlutá";
-    questions[2].ans3 = "černá";
-    questions[2].ans4 = "zelená";
+    questions[2].question = "Kolik mld lidí je na planetě?";
+    questions[2].ans1 = "4";
+    questions[2].ans2 = "42";
+    questions[2].ans3 = "128";
+    questions[2].ans4 = "8";
     questions[2].correct = 4;
 
     /**load_questions("/home/jan/Documents/UPS/UPS22/sources/server/otazky.txt",questions);**/
