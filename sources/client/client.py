@@ -1,6 +1,7 @@
 import socket
 from codes import *
 import threading
+import re
 
 class Client:
     def __init__(self, gui) -> None:
@@ -51,8 +52,14 @@ class Client:
 
             data = data.decode()
             print(f'Přijímám: {data}')
+
+            if re.match("^\d+,.*", data) == False:
+                print("Spatny prijimane zpravy")
+                continue
+
             data = data.split(',')
             data = [s.rstrip('\x00') for s in data]
+
             try:
                 msg_code = int(data[0])
             except:

@@ -616,6 +616,12 @@ void send_endgame_results(int room){
         
     }
 
+    for (p = 0; p < NUMBER_PLAYERS_IN_ONE_GAME; p++){
+        if (games[room].availability[p] == 1){
+            games[room].array_p[p].points = 0;
+        }       
+    }
+
     clean_room(room);
 }
 
@@ -698,16 +704,16 @@ int main(int argc , char *argv[])
 {
     int port = 10000;
     if (argc < 2){
-        printf("Port byl nastaven na výchozí hodnotu 10000.\n");
+        printf("Port byl nastaven na vychozi hodnotu 10000.\n");
     }
     else if (argc == 2){
-        printf("Goood\n");
         int param_port = atoi(argv[1]);
         if (param_port >= 1 && param_port <= 65335){
             port = param_port;
+            printf("Port byl nastaven na %d\n", port);
         }
         else{
-            printf("Nesprávný rozsah portu, povolý rozsah 1-65335.");
+            printf("Nesprávný rozsah portu, povoly rozsah 1-65335.\n");
             exit(0);
         }
         
@@ -744,7 +750,7 @@ int main(int argc , char *argv[])
     questions[2].ans4 = "8";
     questions[2].correct = 4;
 
-    /**load_questions("/home/jan/Documents/UPS/UPS22/sources/server/otazky.txt",questions);**/
+    /**load_questions("otazky.txt",questions);**/
     init_players(players);
 
     /**příprava otázek pro všechny hry**/
@@ -789,11 +795,14 @@ int main(int argc , char *argv[])
     {
         printf("Could not create socket\n");
     }
+    if (setsockopt(socket_desc, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+        printf("setsocketopt(SO_REUSEADDR) failed");
+        
     printf("Socket created\n");
      
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons( 10000 );
+    server.sin_port = htons( port );
      
     if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
     {

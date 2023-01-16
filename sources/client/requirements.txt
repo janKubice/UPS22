@@ -1,0 +1,6 @@
+python-apt==2.2.1
+python-debian==0.1.39
+python-debianbts==3.1.0
+requests==2.25.1
+threaded==4.1.0
+tk==0.1.0
