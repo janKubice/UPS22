@@ -13,6 +13,7 @@
 #include<unistd.h> 
 #include<pthread.h>
 #include<time.h>
+#include <regex.h>
 
 /** kody zprav */
 #define CLIENT_MSG_SIZE 512
@@ -647,7 +648,19 @@ void *connection_handler(void *socket_desc)
         int i = 0;
         char *p = strtok(client_message, ",");
         char *params[3];
+        
 
+    	regex_t reegex;
+    	int value;
+    	value = regcomp( &reegex, "^\d+,.*", 0);
+    	value = regexec( &reegex, client_message, 0, NULL, 0);       
+    	
+    	if  (value == 1)
+    	{
+    	    close(sock);
+            return 0;
+        }
+                    
         /** rozdeleni zpravy podle ,**/
         while (p != NULL)
         {
