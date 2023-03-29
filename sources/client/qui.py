@@ -12,9 +12,11 @@ class Qui:
 		self.client = Client(self)
 
 		# vytvoření jednotlivých labelů a tlačítek
+		self.points = 0
 		self.title = Label()
 		self.right_btn = Button()
 		self.left_btn = Button()
+		self.quit_button = Button()
 		self.text = Label()
 		self.text_2 = Label()
 		self.text_points = Label()
@@ -44,12 +46,18 @@ class Qui:
 		@param question = otázka
 		@param answers = odpovědi
 		"""
+		self.ip_input.destroy()
+		self.port_input.destroy()
+		self.name_input.destroy()
+		self.text_2.destroy()
+		self.text_input.destroy()
+		self.left_btn.destroy()
 
-		self.text_points.config(text="Body: ", width=60,font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
-		self.text_points.place(x=200,y=200)
+		self.text_points.config(text=f"Body: {self.points}", width=self.gui.winfo_width(),font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
 		self.right_btn.config(width=0, text='')
 		self.right_btn.place(x=-1000, y=-1000)
-		self.text_another.config(text='')
+		#self.text_another.config(text='')
+		self.text_another.destroy()
 		self.text.config(text='')
 		self.display_question(question)
 		self.opt_selected=IntVar()
@@ -73,18 +81,20 @@ class Qui:
 		@param txt = chybová hláška
 		"""
 		text_wrong = Label(self.gui, text=txt, width=self.gui.winfo_width(), font= ( 'ariel' ,16, 'bold' ), bg="red")
-		text_wrong.pack()
+		text_wrong.pack(side="bottom")
 		self.gui.after(5000, lambda: text_wrong.destroy())
 
 	def buttons(self):
 		""" Tlačítka pro uložení odpovědi a ukončení hry.
 		"""
-		self.right_btn.config(text="Ulozit odpoved",command=self.send_answer_btn, width=22, bg="red",fg="white",font=("ariel",16,"bold"))
-		self.right_btn.place(x=350,y=300)
+		#self.right_btn.config(text="Ulozit odpoved",command=self.send_answer_btn, width=22, bg="red",fg="white",font=("ariel",16,"bold"))
+		#self.right_btn.place(x=350,y=300)
+		self.right_btn.config(text="Ulozit odpoved", command=self.send_answer_btn, width=self.gui.winfo_width(), bg="red",fg="white", font=("ariel", 20, "bold"))
+		self.right_btn.pack()
 
-		quit_button = Button(self.gui, text="Quit", command=self.quit_game, width=5,bg="black", fg="white",font=("ariel",16," bold"))
-
-		quit_button.place(x=700,y=50)
+		self.quit_button.destroy()
+		self.quit_button = Button(self.gui, text="Quit", command=self.quit_game, width=5,bg="black", fg="white",font=("ariel",16," bold"))
+		self.quit_button.pack(side="right")
 
 	def quit_game(self):
 		""" Ukončení hry.
@@ -114,22 +124,28 @@ class Qui:
 	def display_answer(self, answer, points):
 		""" Zobrazí správnou odpověď a body.
 		"""
+		self.points = points
 		self.text.config(text=f"Správná odpověď: {answer}.", width=60,font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
-		self.text_points.config(text=f"Body: {points}.", width=60,font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
+		self.text_points.config(text=f"Body: {points}.", width=self.gui.winfo_width(),font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
 
 
 	def display_menu(self):
 		""" 
 		Zobrazí menu.
 		"""
+		self.points = 0
+		self.right_btn.destroy()
+		self.quit_button.destroy()
+		self.text.destroy()
+		
 		self.text = Label(self.gui, text="Zadej jméno", width=60, font= ( 'ariel' ,16, 'bold' ))
 		self.name_input = Entry(self.gui, textvariable='prezdivka')
 
-		self.text_2 = Label(self.gui, text="Zadej IP a port", width=60, font= ( 'ariel' ,16, 'bold' ))
+		self.text_2 = Label(self.gui, text="Zadej adresu a port", width=60, font= ( 'ariel' ,16, 'bold' ))
 		self.ip_input = Entry(self.gui, textvariable='IP')
 		self.port_input = Entry(self.gui, textvariable='PORT')
 
-		self.text_points.config(text="", width=60,font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
+		self.text_points.config(text="", width=self.gui.winfo_width(),font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
 		
 		self.right_btn = Button(self.gui)
 		self.right_btn.config(text="Připojit se na server", 
@@ -149,6 +165,12 @@ class Qui:
 		@param admin (boolean) = zda je nebo není admin
 		@param id = id lobby, zobrazuje se jen adminovi
 		"""
+		self.ip_input.destroy()
+		self.port_input.destroy()
+		self.name_input.destroy()
+		self.text_2.destroy()
+		self.right_btn.destroy()
+		self.text_input.destroy()
 
 		self.text_input.destroy()
 		self.name_input.destroy()
@@ -164,12 +186,12 @@ class Qui:
 			self.text.config(text=f"Players: {num_players}/3", width=60, font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
 		else:
 			self.title.config(text=f'Místnost')
-			self.text.config(text=f"Room\nPlayers: {num_players}/3", width=60, font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
+			self.text.config(text=f"Players: {num_players}/3", width=60, font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
 
 		self.text.pack()
 
-		self.text_points.config(text="Body: 0", width=60,font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
-		self.text_points.place(x=200,y=200)
+		self.text_points.config(text="", width=self.gui.winfo_width(),font=( 'ariel' ,16, 'bold' ), anchor= 'w' )
+		self.text_points.pack()
 
 		self.right_btn = Button(self.gui)
 		self.text_another = Label(self.gui)

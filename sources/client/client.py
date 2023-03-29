@@ -54,16 +54,22 @@ class Client:
             print(f'Přijímám: {data}')
 
             if re.match("^\d+,.*", data) == False:
-                print("Spatny prijimane zpravy")
+                print("Prijata data jsou spatna, ukoncuji")
                 continue
 
             data = data.split(',')
             data = [s.rstrip('\x00') for s in data]
 
+            if len(data) > 2:
+                print("Prijata data jsou spatna, ukoncuji (delka)")
+                break
+
             try:
                 msg_code = int(data[0])
             except:
+                print("Prijata data jsou spatna, ukoncuji (nevalidni znak)")
                 break
+
             if msg_code == REQ_ID:
                 self.set_player_id(int(data[1]))
             elif msg_code == CONNECT_TO_GAME:

@@ -35,6 +35,7 @@
 #define STATE_IN_GAME 2
 #define STATE_IN_PAUSE 3
 #define STATE_ENDED 4
+#define STATE_FREE 5
 
 /** nastaveni serveru */
 #define NUMBER_OF_PLAYERS 300
@@ -50,6 +51,7 @@ typedef struct Player
     int socket;
     char name[255];
     int game_ended;
+    int game_id;
 } player;
 
 
@@ -92,7 +94,7 @@ question* questions = NULL;
  * @param game_id id hry, ktera se ma uspat
 */
 void* sleep_time(int game_id){
-    sleep(5);
+    sleep(1);
     next_round(game_id);
 }
 
@@ -140,6 +142,7 @@ void init_players(player* players){
     for(i = 0; i < NUMBER_OF_PLAYERS; i++){
         players[i].id= -1;
         players[i].game_ended = 0;
+        players[i].game_id = -1;
     }
 }
 
@@ -149,23 +152,24 @@ void init_players(player* players){
  * @param sock socket
  * @param params parametry od klienta
  */
-void create_room(int sock, char* num_of_players){
+void create_room(int sock, char* player_id){
     int free_found = 0;
     int i;
     for(i = 0; i < NUMBER_OF_ROOMS; i++){
-        if(games[i].id == -1){
+        if(games[i].state == STATE_FREE){
             games[i].id = i;
             games[i].state = STATE_IN_LOBBY;
-            games[i].array_p[0] = players[atoi(num_of_players)];
+            games[i].array_p[0] = players[atoi(player_id)];
             games[i].number_players = 1;
             games[i].availability[0] = 1;
+            players[atoi(player_id)].game_id = i;
             free_found = 1;
             break;
         }
     }
 
     if (free_found == 0){
-        send_error("Nelze založit místnost. Serve je plný.", sock);
+        send_error("Nelze založit místnost. Server je plný.", sock);
     }
 
     char text_number[8];
@@ -213,6 +217,7 @@ void connect_to_game(int socket, char* game_id_str, char* num_of_players){
             games[game_id].array_p[i] = players[atoi(num_of_players)];
             games[game_id].number_players++;
             games[game_id].availability[i] = 1;
+            players[atoi(num_of_players)].game_id = game_id;
             break;
         }  
     } 
@@ -254,10 +259,9 @@ void connect_to_game(int socket, char* game_id_str, char* num_of_players){
 void start_game(char* player_id_str){
     int player_id = atoi(player_id_str);
     int free_game_id;
-    int game_id;
+    int game_id = -1;
     char text_number[8];
     sprintf(text_number, "%d", player_id);
-
     /** najde volnou hru k zapnuti**/
     for (free_game_id = 0; free_game_id < NUMBER_OF_ROOMS; free_game_id++){
         if(games[free_game_id].array_p[0].id == player_id){
@@ -266,13 +270,16 @@ void start_game(char* player_id_str){
         }
     }
 
-    games[free_game_id].state = STATE_IN_GAME;
+    if (game_id == -1){
+        send_error("Nepovedlo se spustit hru", players[player_id].socket);
+        return;
+    }
+
+    games[game_id].state = STATE_IN_GAME;
+    printf("free game id: %d\n", game_id);
 
     /** prvni otazka**/
-    printf("player id: %d", player_id);
-    printf("game id: %d\n", game_id);
-
-    question q = questions[games[game_id].q_ids[games[game_id].round]]; /**TODO chybicka blba**/
+    question q = questions[games[game_id].q_ids[games[game_id].round]]; 
     send_question_to_all(q, game_id);
 }
 
@@ -291,14 +298,16 @@ void quiz_answer(char* player_id_str, char* answer_str, int sock){
 
     for (g = 0; g < NUMBER_OF_ROOMS;g++){
         for (p = 0; p < NUMBER_PLAYERS_IN_ONE_GAME; p++) {
-            if(games[g].availability[p]= 1) {
+            if(games[g].availability[p] == 1) {
                 if(games[g].array_p[p].id == player_id) {
-                game_id = g;
-                break;
+                    game_id = g;
+                    break;
                 }
             }
         }  
     }
+
+    game_id = players[player_id].game_id;
 
     if (game_id == -1){
         send_error("Nepovedlo se odeslat odpověď", sock);
@@ -308,6 +317,7 @@ void quiz_answer(char* player_id_str, char* answer_str, int sock){
 
     if (answer == questions[games[game_id].q_ids[games[game_id].round]].correct){
         players[player_id].points += 1;
+        games[game_id].array_p[p].socket += 1;
 
         char correct[8];
         sprintf(correct, "%d", questions[games[game_id].q_ids[games[game_id].round]].correct);
@@ -343,7 +353,7 @@ void leave_game(char* player_id_str){
     int is_admin = 0;
 
     for (g = 0; g < NUMBER_OF_ROOMS;g++){
-        for(i = 0; i < 3; i++){
+        for(i = 0; i < NUMBER_PLAYERS_IN_ONE_GAME; i++){
             if(games[g].array_p[i].id == player_id && games[g].array_p[i].game_ended == 1){
                 game_id = g;
                 games[game_id].availability[i] = 0;
@@ -405,7 +415,7 @@ void leave_game(char* player_id_str){
         memcpy(msg_for_admin + strlen("4,"), game_id_text, strlen(game_id_text));
         memcpy(msg_for_admin + strlen("4,") + strlen(game_id_text), ";", strlen(";"));
         memcpy(msg_for_admin + strlen("4,") + strlen(game_id_text) + strlen(";"), text_number_2, strlen(text_number_2)+1);
-        /**oddeslání zprávy adminovi**/
+        /**odeslání zprávy adminovi**/
         write(games[game_id].array_p[0].socket, msg_for_admin, sizeof(msg_for_admin));
         free(msg_for_admin);
     }
@@ -413,32 +423,38 @@ void leave_game(char* player_id_str){
 
 void id_request(int sock, char* player_name){
     int i;
+    int player_id = -1;
     int rec = 0;
+
     for(i = 1; i < NUMBER_OF_PLAYERS; i++){
         if(players[i].id != -1) {
             /** pokud je hrac ve hre **/
             if(strcmp(players[i].name, player_name) == 0 && players[i].game_ended == 0){
+                printf("Je ve hre\n");
                 reconnect(sock, i);
                 rec = 1;
-                break;
+                player_id = i;
+                return;
             }
         }
     }
 
     /** novy hrac **/
     if (rec == 0){
+        printf("Neni ve hre\n");
         for(i = 1; i < NUMBER_OF_PLAYERS; i++){
             if(players[i].id == -1){
                 players[i].id = i;
                 players[i].socket = sock;
                 players[i].points = 0;
                 memcpy(players[i].name, player_name, strlen(player_name));
+                player_id = i;
                 break;
             }
         }
 
         char text_number[8];
-        sprintf(text_number, "%d", i);
+        sprintf(text_number, "%d", player_id);
 
         char *msg = malloc(strlen("1,") + strlen(text_number) + 1);
         memcpy(msg, "1,", strlen("1,"));
@@ -459,8 +475,32 @@ void clean_room(int room_id){
     }
     games[room_id].number_players = 0;
     games[room_id].round = 0;
-    games[room_id].state = -1;
+    games[room_id].state = STATE_FREE;
     games[room_id].id = -1;
+    
+
+    int questions[NUMBER_OF_QUESTIONS];
+    int q_len = 0;
+    int duplicate = 0;
+
+    int j;
+    while(q_len < NUMBER_OF_QUESTIONS){
+        duplicate = 0;
+        int rnd = rand() % NUMBER_OF_QUESTIONS;
+
+        for (j = 0; j < q_len; j++){
+            if (questions[j] == rnd){
+                duplicate = 1;
+            }
+        }
+
+        if (duplicate == 0){
+            questions[q_len] = rnd;
+            q_len++;
+        }
+    }
+    memcpy(games[room_id].q_ids, questions , sizeof(games[room_id].q_ids));
+    
 }
 
 /**
@@ -475,30 +515,43 @@ void reconnect(int sock, int player_id){
     for (g = 0; g < NUMBER_OF_ROOMS;g++){
         for(i = 0; i < NUMBER_PLAYERS_IN_ONE_GAME; i++){
             if(games[g].array_p[i].id == player_id){
+                players[player_id].socket = sock;
+                players[player_id].game_id = g;
+                players[player_id].id = player_id;
+                players[player_id].points = games[g].array_p[i].points;
+                games[g].array_p[i] = players[player_id];
+                games[g].availability[i] = 1;
                 game_id = g;
+
+                char text_number[8];
+                sprintf(text_number, "%d", player_id);
+
+                char *msg = malloc(strlen("1,") + strlen(text_number) + 1);
+                memcpy(msg, "1,", strlen("1,"));
+                memcpy(msg + strlen("1,"), text_number, strlen(text_number)+1);
+                write(sock, msg, sizeof(msg));
+                free(msg);
                 break;
             }
         }   
     }
-
     if (game_id == -1){
         send_error("Nepovedlo se zpětné připojení.",sock);
         return;
     }
-    
+
     if(games[game_id].state == STATE_IN_LOBBY){
+        printf("in lobby, ID player: %d\n", player_id);
         char text_number[8];
         sprintf(text_number, "%d", games[game_id].number_players);
-
         char *msg = malloc(strlen("2,") + strlen(text_number) + 1);
         memcpy(msg, "2,", strlen("2,"));
         memcpy(msg + strlen("2,"), text_number, strlen(text_number)+1);
-
-
-        write(players[player_id].socket, msg, strlen(msg));
+        write(sock, msg, strlen(msg));
         free(msg);
     }
     else if (games[game_id].state == STATE_IN_GAME){
+        printf("in game, ID player: %d\n", player_id);
         question q = questions[games[game_id].q_ids[games[game_id].round]];
 
         char *msg = malloc(strlen("5,") + strlen(q.question) + strlen(";") + strlen(q.ans1) + strlen("-")+ strlen(q.ans2) + strlen("-") + strlen(q.ans3) + strlen("-")+ strlen(q.ans4) + 1);
@@ -514,7 +567,7 @@ void reconnect(int sock, int player_id){
         memcpy(msg + strlen("5,") + strlen(q.question) + strlen(";") + strlen(q.ans1) + strlen("-") + strlen(q.ans2) + strlen("-") + strlen(q.ans3)+ strlen("-"), q.ans4, strlen(q.ans4) + 1); 
 
 
-        write(players[player_id].socket, msg, strlen(msg));
+        write(sock, msg, strlen(msg));
         free(msg);
     }
     else{
@@ -557,6 +610,7 @@ void next_round(int room_id){
  * @param room_id id mistnosti, do ktere se odesila
  */
 void send_question_to_all(question q, int room_id){
+    printf("question: %s - %d - game id: %d\n", q.question, q.correct, room_id);
     char *msg = malloc(strlen("5,") + strlen(q.question) + strlen(";") + strlen(q.ans1) + strlen("-")+ strlen(q.ans2) + strlen("-") + strlen(q.ans3) + strlen("-")+ strlen(q.ans4) + 1);
     memcpy(msg, "5,", strlen("5,"));
     memcpy(msg + strlen("5,"), q.question, strlen(q.question)); 
@@ -569,10 +623,10 @@ void send_question_to_all(question q, int room_id){
     memcpy(msg + strlen("5,") + strlen(q.question) + strlen(";") + strlen(q.ans1) + strlen("-") + strlen(q.ans2) + strlen("-") + strlen(q.ans3), "-", strlen("-")); 
     memcpy(msg + strlen("5,") + strlen(q.question) + strlen(";") + strlen(q.ans1) + strlen("-") + strlen(q.ans2) + strlen("-") + strlen(q.ans3)+ strlen("-"), q.ans4, strlen(q.ans4) + 1); 
 
-
     int p;
     for (p = 0; p < NUMBER_PLAYERS_IN_ONE_GAME; p++){
         if (games[room_id].availability[p] == 1){
+            printf("id in game: %d ... player name: %s\n", p, games[room_id].array_p[p].name);
             write(games[room_id].array_p[p].socket, msg, strlen(msg));
         }       
     }
@@ -592,9 +646,10 @@ void send_endgame_results(int room){
             max_points = players[games[room].array_p[i].id].points;
             id_max_points = i;
         }
+        players[games[room].array_p[i].id].points = 0;
     }
 
-    int p;
+    int p;    
     for (p = 0; p < NUMBER_PLAYERS_IN_ONE_GAME; p++){
         if (games[room].availability[p] != 0){
             if(p != id_max_points){
@@ -615,12 +670,6 @@ void send_endgame_results(int room){
             }
         } 
         
-    }
-
-    for (p = 0; p < NUMBER_PLAYERS_IN_ONE_GAME; p++){
-        if (games[room].availability[p] == 1){
-            games[room].array_p[p].points = 0;
-        }       
     }
 
     clean_room(room);
@@ -645,21 +694,39 @@ void *connection_handler(void *socket_desc)
     while( (read_size = recv(sock , client_message , CLIENT_MSG_SIZE , 0)) > 0 )
     {
         client_message[read_size] = '\0';
-        int i = 0;
-        char *p = strtok(client_message, ",");
-        char *params[3];
-        
+        printf("msg: %s\n", client_message);
 
-    	regex_t reegex;
-    	int value;
-    	value = regcomp( &reegex, "^\d+,.*", 0);
-    	value = regexec( &reegex, client_message, 0, NULL, 0);       
-    	
-    	if  (value == 1)
-    	{
+        /**regex_t compiledRegex;
+        int reti;
+
+        reti = regcomp(&compiledRegex, "-?[0-9]+,[0-9]+,[A-Za-z0-9]+", REG_EXTENDED | REG_ICASE);
+        if (reti != 0) {
+            printf("Chyba pri kompilovani regexu!\n");
+            printf("Zaviram socket\n");
     	    close(sock);
             return 0;
         }
+
+        reti = regexec(&compiledRegex, client_message, 0, NULL, 0);
+        if (!reti){
+            printf("Prijata zprava sedi!\n");
+        }
+        else if (reti == REG_NOMATCH){
+            printf("Zaviram socket, spatny format zpravy\n");
+    	    close(sock);
+            return 0;
+        }
+        else {
+            printf("Zaviram socket, neco se pokazilo\n");
+    	    close(sock);
+            return 0;
+        }
+        
+        regfree(&compiledRegex);**/
+
+        int i = 0;
+        char *p = strtok(client_message, ",");
+        char *params[3];
                     
         /** rozdeleni zpravy podle ,**/
         while (p != NULL)
@@ -792,6 +859,7 @@ int main(int argc , char *argv[])
 
         games[i].id = -1;
         games[i].round = 0;
+        games[i].state = STATE_FREE;
         memcpy(games[i].q_ids, questions , sizeof(games[i].q_ids));
         for (h = 0;h < 3; h++){
             games[i].availability[h] = 0;
